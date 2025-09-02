@@ -1,0 +1,18 @@
+# Core dependencies
+streamlit==1.37.1
+Pillow==10.4.0
+numpy
+opencv-python==4.8.1.78
+
+# ML dependencies - Using exact versions for model compatibility
+tensorflow==2.19.0
+keras==3.10.0
+ultralytics==8.0.196
+# Torch stack for RCNN (ensure you install matching CUDA builds if needed)
+torch
+torchvision==0.23.0
+
+# PyTorch compatibility note:
+# If using PyTorch 2.6+, the YOLO model loading has been patched for compatibility
+
+
