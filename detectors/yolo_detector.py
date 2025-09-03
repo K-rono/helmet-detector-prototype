@@ -4,11 +4,18 @@ import os
 import tempfile
 from typing import List, Optional
 
-import cv2
 import numpy as np
 from PIL import Image
 import torch
 from ultralytics import YOLO
+
+# Try to import OpenCV, but make it optional for deployment
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+    cv2 = None
 
 from .base import BoundingBox, DetectionResult, HelmetDetector
 from utils.model_loader import load_yolo_model_safely

@@ -1,8 +1,11 @@
+# Local development requirements (includes OpenCV)
+# Use this for local development where OpenCV works properly
+
 # Core dependencies
 streamlit==1.37.1
 Pillow==10.4.0
 numpy
-# opencv-python==4.8.1.78  # Optional - causes deployment issues on some platforms
+opencv-python==4.8.1.78
 
 # ML dependencies - Using exact versions for model compatibility
 tensorflow==2.19.0
@@ -14,5 +17,3 @@ torchvision==0.23.0
 
 # PyTorch compatibility note:
 # If using PyTorch 2.6+, the YOLO model loading has been patched for compatibility
-
-

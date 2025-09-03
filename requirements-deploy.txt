@@ -1,8 +1,10 @@
+# Deployment-friendly requirements for Streamlit Cloud
+# This version excludes OpenCV to avoid deployment issues
+
 # Core dependencies
 streamlit==1.37.1
 Pillow==10.4.0
 numpy
-# opencv-python==4.8.1.78  # Optional - causes deployment issues on some platforms
 
 # ML dependencies - Using exact versions for model compatibility
 tensorflow==2.19.0
@@ -15,4 +17,5 @@ torchvision==0.23.0
 # PyTorch compatibility note:
 # If using PyTorch 2.6+, the YOLO model loading has been patched for compatibility
 
-
+# Note: opencv-python is excluded to avoid libGL.so.1 deployment issues
+# The application works without OpenCV as it uses PIL for visualization

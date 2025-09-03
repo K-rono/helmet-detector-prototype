@@ -63,13 +63,25 @@ source helmet-detector-env/bin/activate
 
 ### Step 2: Install Dependencies
 
+#### For Local Development
 ```bash
-# Install core dependencies
-pip install -r requirements.txt
+# Install core dependencies (includes OpenCV)
+pip install -r requirements-local.txt
 
 # Verify installation
 python -c "import torch, tensorflow, streamlit, ultralytics; print('All dependencies installed successfully!')"
 ```
+
+#### For Streamlit Cloud Deployment
+```bash
+# Install deployment-friendly dependencies (excludes OpenCV)
+pip install -r requirements-deploy.txt
+
+# Verify installation
+python -c "import torch, tensorflow, streamlit, ultralytics; print('All dependencies installed successfully!')"
+```
+
+**Note**: The deployment version excludes OpenCV to avoid `libGL.so.1` errors on cloud platforms. The application works perfectly without OpenCV as it uses PIL for visualization.
 
 ### Step 3: Verify GPU Support (Optional)
 ```bash
@@ -438,6 +450,34 @@ If you encounter issues not covered here:
   - Use **Hybrid (YOLO+VGG)** for highest accuracy
   - Use **DETR** for state-of-the-art results
   - Use **YOLO Only** for balanced performance
+
+## Deployment
+
+### Streamlit Cloud Deployment
+
+1. **Fork this repository** to your GitHub account
+2. **Go to [Streamlit Cloud](https://share.streamlit.io/)** and sign in with GitHub
+3. **Click "New app"** and select your forked repository
+4. **Configure the deployment**:
+   - **Main file path**: `app/main.py`
+   - **Requirements file**: `requirements-deploy.txt` (important!)
+   - **Python version**: 3.11
+5. **Deploy** and wait for the build to complete
+
+### Important Deployment Notes
+
+- **Use `requirements-deploy.txt`**: This excludes OpenCV to avoid deployment issues
+- **Model Upload**: Users upload models at runtime - no model files needed in the repo
+- **Temporary Storage**: Models are stored in session memory and cleaned up automatically
+- **No GPU Required**: The app works on CPU-only deployments (though GPU is faster)
+
+### Alternative Deployment Platforms
+
+The app can also be deployed on:
+- **Heroku**: Use `requirements-deploy.txt`
+- **Railway**: Use `requirements-deploy.txt`
+- **Google Cloud Run**: Use `requirements-deploy.txt`
+- **AWS App Runner**: Use `requirements-deploy.txt`
 
 ## License
 
