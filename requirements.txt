@@ -1,7 +1,7 @@
 # Core dependencies
 streamlit==1.37.1
 Pillow==10.4.0
-numpy
+numpy==1.26.4
 opencv-python==4.8.1.78
 # opencv-python==4.8.1.78  # Optional - causes deployment issues on some platforms
 
