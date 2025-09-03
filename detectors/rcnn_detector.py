@@ -69,12 +69,15 @@ class RCNNHelmetDetector(HelmetDetector):
 			)
 			boxes.append(bbox)
 
-			# Counting logic: "Helmet" vs "NoHelmet" in class name
-			name_lower = name.lower()
-			if "nohelmet" in name_lower or "no helmet" in name_lower:
-				no_helmet_count += 1
-			else:
+			# Updated counting logic for RCNN (non-zero indexed)
+			if label_id == 1:  # DHelmet
 				helmet_count += 1
+			elif label_id == 2:  # DNoHelmet
+				no_helmet_count += 1
+			elif label_id == 3:  # DHelmetP1Helmet
+				helmet_count += 2
+			elif label_id == 4:  # DNoHelmetP1NoHelmet
+				no_helmet_count += 2
 
 		total = len(boxes)
 		overall_conf = (sum(b.score for b in boxes) / total * 100) if total else 0.0

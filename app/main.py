@@ -33,6 +33,8 @@ if 'uploaded_models' not in st.session_state:
 	st.session_state.uploaded_models = {}
 if 'temp_model_dir' not in st.session_state:
 	st.session_state.temp_model_dir = None
+if 'available_models' not in st.session_state:
+	st.session_state.available_models = {}
 
 # Cleanup function for when session ends
 def cleanup_on_exit():
@@ -53,10 +55,59 @@ def render_header():
 			"Reducing rider fatality rates with AI-assisted helmet compliance checks at intersections."
 		)
 	with right:
-		if st.session_state.uploaded_models:
-			st.success(f"✅ {len(st.session_state.uploaded_models)} model(s) uploaded")
+		# Initialize available models if not done yet
+		if not st.session_state.available_models:
+			st.session_state.available_models = detect_local_models()
+		
+		total_models = len(st.session_state.uploaded_models) + len(st.session_state.available_models)
+		if total_models > 0:
+			local_count = len(st.session_state.available_models)
+			uploaded_count = len(st.session_state.uploaded_models)
+			if local_count > 0 and uploaded_count > 0:
+				st.success(f"✅ {total_models} model(s) available ({local_count} local, {uploaded_count} uploaded)")
+			elif local_count > 0:
+				st.success(f"✅ {local_count} local model(s) available")
+			else:
+				st.success(f"✅ {uploaded_count} uploaded model(s)")
 		else:
-			st.warning("⚠️ No models uploaded")
+			st.warning("⚠️ No models available")
+
+
+def detect_local_models():
+	"""Detect models in the project's models directory"""
+	models_dir = os.path.join(PROJECT_ROOT, "models")
+	available_models = {}
+	
+	if os.path.exists(models_dir):
+		model_files = {
+			"yolo": ["yolo.pt"],
+			"vgg16": ["vgg16.keras", "vgg16.h5"],
+			"rcnn": ["rcnn.pth"],
+			"ssd": ["ssd.pth"],
+			"detr": ["detr.pth"]
+		}
+		
+		for model_type, filenames in model_files.items():
+			for filename in filenames:
+				filepath = os.path.join(models_dir, filename)
+				if os.path.exists(filepath):
+					available_models[model_type] = filepath
+					break
+	
+	return available_models
+
+
+def get_model_path(model_type: str) -> Optional[str]:
+	"""Get model path from either uploaded models or local files"""
+	# First check uploaded models
+	if model_type in st.session_state.uploaded_models:
+		return st.session_state.uploaded_models[model_type]
+	
+	# Then check local models
+	if model_type in st.session_state.available_models:
+		return st.session_state.available_models[model_type]
+	
+	return None
 
 
 def setup_temp_directory():
@@ -91,137 +142,105 @@ def validate_model_file(file, expected_extensions):
 	return True, "Valid model file"
 
 
+def render_model_tab(model_type: str, model_name: str, extensions: list, description: str, key_prefix: str):
+	"""Render a model tab with hybrid loading"""
+	st.markdown(f"**{model_name}**")
+	st.caption(description)
+	
+	# Check if model already exists
+	model_path = get_model_path(model_type)
+	if model_path:
+		if model_type in st.session_state.available_models:
+			st.success(f"✅ Local model found: {os.path.basename(model_path)}")
+			st.caption(f"Path: {model_path}")
+		else:
+			st.success(f"✅ Uploaded model: {os.path.basename(model_path)}")
+		
+		# Show option to replace with upload
+		if st.button("Replace with Upload", key=f"replace_{key_prefix}"):
+			st.session_state[f'show_{key_prefix}_upload'] = True
+			st.rerun()
+	else:
+		st.info(f"No {model_name} model found. Please upload one.")
+		st.session_state[f'show_{key_prefix}_upload'] = True
+	
+	# Show upload interface if needed
+	if st.session_state.get(f'show_{key_prefix}_upload', False):
+		uploaded_file = st.file_uploader(
+			f"Upload {model_name} model",
+			type=extensions,
+			key=f"{key_prefix}_upload",
+			help=f"Upload your trained {model_name} model file"
+		)
+		
+		if uploaded_file:
+			is_valid, message = validate_model_file(uploaded_file, extensions)
+			if is_valid:
+				if st.button(f"Save {model_name} Model", key=f"save_{key_prefix}"):
+					temp_dir = setup_temp_directory()
+					model_path = os.path.join(temp_dir, f"{model_type}.{extensions[0]}")
+					with open(model_path, "wb") as f:
+						f.write(uploaded_file.getbuffer())
+					st.session_state.uploaded_models[model_type] = model_path
+					st.session_state[f'show_{key_prefix}_upload'] = False
+					st.success(f"✅ {model_name} model saved successfully!")
+					st.rerun()
+			else:
+				st.error(f"❌ {message}")
+		
+		if st.button("Cancel", key=f"cancel_{key_prefix}"):
+			st.session_state[f'show_{key_prefix}_upload'] = False
+			st.rerun()
+
+
 def render_model_uploader():
 	"""Render model upload interface"""
-	st.subheader("📁 Upload Models")
+	st.subheader("📁 Model Management")
+	
+	# Show current model status
+	if st.session_state.available_models or st.session_state.uploaded_models:
+		st.markdown("**Available Models:**")
+		col1, col2 = st.columns(2)
+		
+		with col1:
+			if st.session_state.available_models:
+				st.markdown("🏠 **Local Models:**")
+				for model_type, path in st.session_state.available_models.items():
+					file_size = os.path.getsize(path) / (1024 * 1024)  # MB
+					st.caption(f"• {model_type.upper()}: {os.path.basename(path)} ({file_size:.1f} MB)")
+		
+		with col2:
+			if st.session_state.uploaded_models:
+				st.markdown("☁️ **Uploaded Models:**")
+				for model_type, path in st.session_state.uploaded_models.items():
+					file_size = os.path.getsize(path) / (1024 * 1024)  # MB
+					st.caption(f"• {model_type.upper()}: {os.path.basename(path)} ({file_size:.1f} MB)")
+		
+		st.markdown("---")
 	
 	# Create tabs for different model types
 	tab1, tab2, tab3, tab4, tab5 = st.tabs(["YOLO", "VGG16", "RCNN", "SSD", "DETR"])
 	
 	with tab1:
-		st.markdown("**YOLOv8 Model (.pt)**")
-		st.caption("Required for YOLO Only and Hybrid detection")
-		yolo_file = st.file_uploader(
-			"Upload YOLO model",
-			type=["pt"],
-			key="yolo_upload",
-			help="Upload your trained YOLOv8 model file"
-		)
-		
-		if yolo_file:
-			is_valid, message = validate_model_file(yolo_file, ["pt"])
-			if is_valid:
-				if st.button("Save YOLO Model", key="save_yolo"):
-					temp_dir = setup_temp_directory()
-					model_path = os.path.join(temp_dir, "yolo.pt")
-					with open(model_path, "wb") as f:
-						f.write(yolo_file.getbuffer())
-					st.session_state.uploaded_models["yolo"] = model_path
-					st.success("✅ YOLO model saved successfully!")
-					st.rerun()
-			else:
-				st.error(f"❌ {message}")
+		render_model_tab("yolo", "YOLOv8 Model (.pt)", ["pt"], "Required for YOLO Only and Hybrid detection", "yolo")
 	
 	with tab2:
-		st.markdown("**VGG16 Model (.keras)**")
-		st.caption("Required for Hybrid (YOLO+VGG) detection")
-		vgg_file = st.file_uploader(
-			"Upload VGG16 model",
-			type=["keras", "h5"],
-			key="vgg_upload",
-			help="Upload your trained VGG16 model file"
-		)
-		
-		if vgg_file:
-			is_valid, message = validate_model_file(vgg_file, ["keras", "h5"])
-			if is_valid:
-				if st.button("Save VGG16 Model", key="save_vgg"):
-					temp_dir = setup_temp_directory()
-					model_path = os.path.join(temp_dir, "vgg16.keras")
-					with open(model_path, "wb") as f:
-						f.write(vgg_file.getbuffer())
-					st.session_state.uploaded_models["vgg16"] = model_path
-					st.success("✅ VGG16 model saved successfully!")
-					st.rerun()
-			else:
-				st.error(f"❌ {message}")
+		render_model_tab("vgg16", "VGG16 Model (.keras)", ["keras", "h5"], "Required for Hybrid (YOLO+VGG) detection", "vgg")
 	
 	with tab3:
-		st.markdown("**Faster R-CNN Model (.pth)**")
-		st.caption("Required for RCNN detection")
-		rcnn_file = st.file_uploader(
-			"Upload RCNN model",
-			type=["pth"],
-			key="rcnn_upload",
-			help="Upload your trained Faster R-CNN model file"
-		)
-		
-		if rcnn_file:
-			is_valid, message = validate_model_file(rcnn_file, ["pth"])
-			if is_valid:
-				if st.button("Save RCNN Model", key="save_rcnn"):
-					temp_dir = setup_temp_directory()
-					model_path = os.path.join(temp_dir, "rcnn.pth")
-					with open(model_path, "wb") as f:
-						f.write(rcnn_file.getbuffer())
-					st.session_state.uploaded_models["rcnn"] = model_path
-					st.success("✅ RCNN model saved successfully!")
-					st.rerun()
-			else:
-				st.error(f"❌ {message}")
+		render_model_tab("rcnn", "Faster R-CNN Model (.pth)", ["pth"], "Required for RCNN detection", "rcnn")
 	
 	with tab4:
-		st.markdown("**SSD Model (.pth)**")
-		st.caption("Required for SSD detection")
-		ssd_file = st.file_uploader(
-			"Upload SSD model",
-			type=["pth"],
-			key="ssd_upload",
-			help="Upload your trained SSD model file"
-		)
-		
-		if ssd_file:
-			is_valid, message = validate_model_file(ssd_file, ["pth"])
-			if is_valid:
-				if st.button("Save SSD Model", key="save_ssd"):
-					temp_dir = setup_temp_directory()
-					model_path = os.path.join(temp_dir, "ssd.pth")
-					with open(model_path, "wb") as f:
-						f.write(ssd_file.getbuffer())
-					st.session_state.uploaded_models["ssd"] = model_path
-					st.success("✅ SSD model saved successfully!")
-					st.rerun()
-			else:
-				st.error(f"❌ {message}")
+		render_model_tab("ssd", "SSD Model (.pth)", ["pth"], "Required for SSD detection", "ssd")
 	
 	with tab5:
-		st.markdown("**DETR Model (.pth)**")
-		st.caption("Required for DETR detection")
-		detr_file = st.file_uploader(
-			"Upload DETR model",
-			type=["pth"],
-			key="detr_upload",
-			help="Upload your trained DETR model file"
-		)
-		
-		if detr_file:
-			is_valid, message = validate_model_file(detr_file, ["pth"])
-			if is_valid:
-				if st.button("Save DETR Model", key="save_detr"):
-					temp_dir = setup_temp_directory()
-					model_path = os.path.join(temp_dir, "detr.pth")
-					with open(model_path, "wb") as f:
-						f.write(detr_file.getbuffer())
-					st.session_state.uploaded_models["detr"] = model_path
-					st.success("✅ DETR model saved successfully!")
-					st.rerun()
-			else:
-				st.error(f"❌ {message}")
+		render_model_tab("detr", "DETR Model (.pth)", ["pth"], "Required for DETR detection", "detr")
 	
-	# Display uploaded models
+	# Display uploaded models (only uploaded ones can be deleted)
 	if st.session_state.uploaded_models:
 		st.markdown("---")
 		st.subheader("📋 Uploaded Models")
+		st.caption("These models were uploaded at runtime and can be deleted")
 		for model_name, model_path in st.session_state.uploaded_models.items():
 			col1, col2, col3 = st.columns([2, 1, 1])
 			with col1:
@@ -230,18 +249,18 @@ def render_model_uploader():
 				file_size = os.path.getsize(model_path) / (1024 * 1024)  # MB
 				st.write(f"{file_size:.1f} MB")
 			with col3:
-				if st.button("🗑️", key=f"delete_{model_name}", help="Delete model"):
+				if st.button("🗑️", key=f"delete_{model_name}", help="Delete uploaded model"):
 					os.remove(model_path)
 					del st.session_state.uploaded_models[model_name]
 					st.success(f"Deleted {model_name} model")
 					st.rerun()
 	
-	# Clear all models button
+	# Clear all uploaded models button
 	if st.session_state.uploaded_models:
-		if st.button("🗑️ Clear All Models", type="secondary"):
+		if st.button("🗑️ Clear All Uploaded Models", type="secondary"):
 			cleanup_temp_directory()
 			st.session_state.uploaded_models = {}
-			st.success("All models cleared!")
+			st.success("All uploaded models cleared!")
 			st.rerun()
 
 
@@ -264,45 +283,45 @@ def render_uploader() -> Optional[Image.Image]:
 def render_model_selector() -> str:
 	st.subheader("Select Detection Algorithm")
 	
-	# Check which models are available
+	# Check which models are available (both local and uploaded)
 	available_models = []
 	model_status = {}
 	
 	# Check YOLO
-	if "yolo" in st.session_state.uploaded_models:
+	if get_model_path("yolo"):
 		available_models.append("YOLO Only")
 		model_status["YOLO Only"] = "✅ Available"
 	else:
 		model_status["YOLO Only"] = "❌ YOLO model required"
 	
 	# Check Hybrid (YOLO + VGG)
-	if "yolo" in st.session_state.uploaded_models and "vgg16" in st.session_state.uploaded_models:
+	if get_model_path("yolo") and get_model_path("vgg16"):
 		available_models.append("Hybrid (YOLO+VGG)")
 		model_status["Hybrid (YOLO+VGG)"] = "✅ Available"
 	else:
 		missing = []
-		if "yolo" not in st.session_state.uploaded_models:
+		if not get_model_path("yolo"):
 			missing.append("YOLO")
-		if "vgg16" not in st.session_state.uploaded_models:
+		if not get_model_path("vgg16"):
 			missing.append("VGG16")
 		model_status["Hybrid (YOLO+VGG)"] = f"❌ {', '.join(missing)} model(s) required"
 	
 	# Check RCNN
-	if "rcnn" in st.session_state.uploaded_models:
+	if get_model_path("rcnn"):
 		available_models.append("RCNN (Faster R-CNN)")
 		model_status["RCNN (Faster R-CNN)"] = "✅ Available"
 	else:
 		model_status["RCNN (Faster R-CNN)"] = "❌ RCNN model required"
 	
 	# Check SSD
-	if "ssd" in st.session_state.uploaded_models:
+	if get_model_path("ssd"):
 		available_models.append("SSD (SSD300-VGG16)")
 		model_status["SSD (SSD300-VGG16)"] = "✅ Available"
 	else:
 		model_status["SSD (SSD300-VGG16)"] = "❌ SSD model required"
 	
 	# Check DETR
-	if "detr" in st.session_state.uploaded_models:
+	if get_model_path("detr"):
 		available_models.append("DETR")
 		model_status["DETR"] = "✅ Available"
 	else:
@@ -332,22 +351,22 @@ def render_model_selector() -> str:
 
 
 def run_detection(image: Image.Image, choice: str):
-	"""Run detection using uploaded models"""
+	"""Run detection using hybrid model loading (local + uploaded)"""
 	if choice.startswith("Hybrid"):
-		yolo_path = st.session_state.uploaded_models.get("yolo")
-		vgg_path = st.session_state.uploaded_models.get("vgg16")
+		yolo_path = get_model_path("yolo")
+		vgg_path = get_model_path("vgg16")
 		detector = CombinedHelmetDetector(yolo_path, vgg_path)
 	elif choice.startswith("YOLO"):
-		yolo_path = st.session_state.uploaded_models.get("yolo")
+		yolo_path = get_model_path("yolo")
 		detector = YOLOv8Detector(yolo_path)
 	elif choice.startswith("RCNN"):
-		rcnn_path = st.session_state.uploaded_models.get("rcnn")
+		rcnn_path = get_model_path("rcnn")
 		detector = RCNNHelmetDetector(rcnn_path)
 	elif choice.startswith("SSD"):
-		ssd_path = st.session_state.uploaded_models.get("ssd")
+		ssd_path = get_model_path("ssd")
 		detector = SSDHelmetDetector(ssd_path)
 	else:  # DETR
-		detr_path = st.session_state.uploaded_models.get("detr")
+		detr_path = get_model_path("detr")
 		detector = DETRHelmetDetector(detr_path)
 	return detector.predict(image)
 

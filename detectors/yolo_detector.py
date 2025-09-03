@@ -91,15 +91,28 @@ class YOLOv8Detector(HelmetDetector):
             # Calculate overall confidence as average of all detections
             overall_confidence = np.mean([box.score for box in boxes]) * 100 if boxes else 0
             
-            # Counting logic (avoid substring overlap):
+            # Updated counting logic for YOLO (zero-indexed)
             helmet_count = 0
             no_helmet_count = 0
             for b in boxes:
-                name = b.label.lower()
-                if "nohelmet" in name or "no helmet" in name:
-                    no_helmet_count += 1
-                elif "helmet" in name:
-                    helmet_count += 1
+                # Get the class index from the label
+                try:
+                    class_idx = self.class_names.index(b.label)
+                    if class_idx == 0:  # DHelmet
+                        helmet_count += 1
+                    elif class_idx == 1:  # DNoHelmet
+                        no_helmet_count += 1
+                    elif class_idx == 2:  # DHelmetP1Helmet
+                        helmet_count += 2
+                    elif class_idx == 3:  # DNoHelmetP1NoHelmet
+                        no_helmet_count += 2
+                except ValueError:
+                    # Fallback to string-based counting if label not found
+                    name = b.label.lower()
+                    if "nohelmet" in name or "no helmet" in name:
+                        no_helmet_count += 1
+                    elif "helmet" in name:
+                        helmet_count += 1
             total_riders = len(boxes)
             
             # Determine overall label based on detected classes

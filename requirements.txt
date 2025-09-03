@@ -2,6 +2,7 @@
 streamlit==1.37.1
 Pillow==10.4.0
 numpy
+opencv-python==4.8.1.78
 # opencv-python==4.8.1.78  # Optional - causes deployment issues on some platforms
 
 # ML dependencies - Using exact versions for model compatibility

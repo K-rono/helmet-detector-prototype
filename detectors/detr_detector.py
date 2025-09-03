@@ -119,12 +119,15 @@ class DETRHelmetDetector(HelmetDetector):
 					)
 					boxes.append(bbox)
 
-					# Counting
-					name_lower = name.lower()
-					if "nohelmet" in name_lower or "no helmet" in name_lower:
-						no_helmet_count += 1
-					else:
+					# Updated counting logic for DETR (zero-indexed)
+					if label_id == 0:  # DHelmet
 						helmet_count += 1
+					elif label_id == 1:  # DNoHelmet
+						no_helmet_count += 1
+					elif label_id == 2:  # DHelmetP1Helmet
+						helmet_count += 2
+					elif label_id == 3:  # DNoHelmetP1NoHelmet
+						no_helmet_count += 2
 
 		total = len(boxes)
 		overall_conf = (sum(b.score for b in boxes) / total * 100) if total else 0.0
