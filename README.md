@@ -7,7 +7,7 @@ A comprehensive helmet detection system supporting multiple state-of-the-art det
 - **Multiple Detection Algorithms**: Choose from 5 different detection approaches:
   - **Hybrid (YOLO+VGG)**: Two-stage pipeline using YOLOv8 for rider detection + VGG16 for helmet classification
   - **YOLO Only**: Direct helmet detection using YOLOv8
-  - **Faster R-CNN**: Single-stage detection with ResNet-50 backbone
+  - **Faster R-CNN**: Detection with ResNet-50 backbone
   - **SSD**: Single Shot Detector with VGG16 backbone
   - **DETR**: Detection Transformer with ResNet-50 backbone
 - **Real-time Performance**: Optimized for intersection monitoring with FPS tracking
@@ -16,21 +16,84 @@ A comprehensive helmet detection system supporting multiple state-of-the-art det
 - **Visualization**: Color-coded bounding boxes (green for helmet, red for no helmet)
 - **Model Compatibility**: Built-in compatibility fixes for PyTorch 2.6+ and TensorFlow version mismatches
 
-## Setup
+## Prerequisites
 
-### 1. Install Dependencies
+### System Requirements
+- **Python**: 3.11 (Only tested on this version)
+- **Operating System**: Windows 10/11
+- **RAM**: Minimum 8GB (16GB+ recommended for multiple models)
+- **Storage**: At least 5GB free space for models and dependencies
+- **GPU**: Optional but recommended (CUDA 11.8+ for GPU acceleration)
 
+### Hardware Recommendations
+- **CPU**: Multi-core processor (4+ cores recommended)
+- **GPU**: NVIDIA GPU with 4GB+ VRAM for optimal performance
+- **Memory**: 16GB+ RAM for running multiple detection algorithms
+
+## Setup Guide
+
+### Step 1: Python Environment Setup
+
+#### Option A: Using Python directly
 ```bash
-pip install -r requirements.txt
+# Check Python version (should be 3.11)
+python --version
+
+# If Python version is too old, install Python 3.11 from python.org
 ```
 
-### 2. Model Files
+#### Option B: Using Conda (Recommended)
+```bash
+# Create a new conda environment
+conda create -n helmet-detector python=3.11
+conda activate helmet-detector
+```
 
+#### Option C: Using Virtual Environment
+```bash
+# Create virtual environment
+python -m venv helmet-detector-env
+
+# Activate environment
+# On Windows:
+helmet-detector-env\Scripts\activate
+# On macOS/Linux:
+source helmet-detector-env/bin/activate
+```
+
+### Step 2: Install Dependencies
+
+```bash
+# Install core dependencies
+pip install -r requirements.txt
+
+# Verify installation
+python -c "import torch, tensorflow, streamlit, ultralytics; print('All dependencies installed successfully!')"
+```
+
+### Step 3: Verify GPU Support (Optional)
+```bash
+# Check PyTorch CUDA support
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+
+# Check TensorFlow GPU support
+python -c "import tensorflow as tf; print(f'GPU available: {len(tf.config.list_physical_devices(\"GPU\")) > 0}')"
+```
+
+### Step 4: Model Setup
+
+#### Create Models Directory
+```bash
+# Create models directory if it doesn't exist
+mkdir -p models
+```
+
+#### Download or Place Your Models
 Place your trained models in the `models/` directory:
 
 ```
 models/
-├── yolo.pt          # YOLOv8 model for rider detection
+├── yolo.pt          # YOLOv8 model for rider detection (REQUIRED)
 ├── vgg16.keras      # VGG16 model for helmet classification (Hybrid mode)
 ├── rcnn.pth         # Faster R-CNN model (optional)
 ├── ssd.pth          # SSD model (optional)
@@ -46,16 +109,119 @@ models/
 
 **Note**: Only `yolo.pt` is required for basic functionality. Other models are optional and enable additional detection algorithms.
 
-### 3. Run the Application
+### Step 5: Verify Installation
 
-#### Web Interface (Recommended)
+#### Test Basic Functionality
 ```bash
+# Test if the system can import all modules
+python -c "
+from detectors import YOLOv8Detector, CombinedHelmetDetector
+print('✅ Basic imports successful')
+"
+
+# Test model loading (if you have models)
+python -c "
+import os
+if os.path.exists('models/yolo.pt'):
+    from detectors import YOLOv8Detector
+    detector = YOLOv8Detector()
+    print('✅ YOLO model loaded successfully')
+else:
+    print('⚠️  No YOLO model found - place yolo.pt in models/ directory')
+"
+```
+
+#### Test Web Interface
+```bash
+# Start the Streamlit app
 streamlit run app/main.py
 ```
 
-#### Command Line Testing
+If successful, you should see:
+```
+You can now view your Streamlit app in your browser.
+
+Local URL: http://localhost:8501
+Network URL: http://192.168.x.x:8501
+```
+
+## Running the Application
+
+### Web Interface (Recommended)
+
+#### Start the Application
 ```bash
-python test_pipeline.py path/to/your/image.jpg
+# Make sure you're in the project directory
+cd helmet-detector-prototype
+
+# Activate your environment (if using conda/venv)
+conda activate helmet-detector  # or activate your venv
+
+# Start the Streamlit app
+streamlit run app/main.py
+```
+
+#### Using the Web Interface
+1. **Open your browser** to `http://localhost:8501`
+2. **Upload an image** containing riders using the file uploader
+3. **Select detection algorithm** from the radio buttons:
+   - Hybrid (YOLO+VGG) - Requires both `yolo.pt` and `vgg16.keras`
+   - YOLO Only - Requires only `yolo.pt`
+   - RCNN (Faster R-CNN) - Requires `rcnn.pth`
+   - SSD (SSD300-VGG16) - Requires `ssd.pth`
+   - DETR - Requires `detr.pth`
+4. **View results** with annotated image and statistics
+
+### Command Line Testing
+
+#### Test with a Single Image
+```bash
+# Test with YOLO detector (requires yolo.pt)
+python -c "
+from detectors import YOLOv8Detector
+from PIL import Image
+import sys
+
+if len(sys.argv) > 1:
+    image_path = sys.argv[1]
+    detector = YOLOv8Detector()
+    image = Image.open(image_path)
+    result = detector.predict(image)
+    print(f'Detected {result.raw[\"total_riders\"]} riders')
+    print(f'With helmet: {result.raw[\"helmet_count\"]}')
+    print(f'Without helmet: {result.raw[\"no_helmet_count\"]}')
+else:
+    print('Usage: python test_script.py path/to/image.jpg')
+" path/to/your/image.jpg
+```
+
+#### Test All Available Detectors
+```bash
+# Test all detectors (if you have the models)
+python -c "
+import os
+from detectors import *
+from PIL import Image
+
+image_path = 'path/to/your/image.jpg'  # Change this path
+image = Image.open(image_path)
+
+detectors = [
+    ('YOLO', YOLOv8Detector),
+    ('Hybrid', CombinedHelmetDetector),
+    ('RCNN', RCNNHelmetDetector),
+    ('SSD', SSDHelmetDetector),
+    ('DETR', DETRHelmetDetector)
+]
+
+for name, detector_class in detectors:
+    try:
+        detector = detector_class()
+        result = detector.predict(image)
+        print(f'{name}: {result.raw[\"total_riders\"]} riders detected')
+    except Exception as e:
+        print(f'{name}: Error - {str(e)[:50]}...')
+"
 ```
 
 ## Usage
@@ -177,7 +343,48 @@ helmet-detector-prototype/
 
 ## Troubleshooting
 
-### Common Issues
+### Setup Issues
+
+#### Python Version Problems
+```bash
+# Check your Python version
+python --version
+
+# If version is too old (< 3.8), install Python 3.9+:
+# Windows: Download from python.org
+# macOS: brew install python@3.9
+# Linux: sudo apt install python3.9
+```
+
+#### Dependency Installation Issues
+```bash
+# If pip install fails, try upgrading pip first
+python -m pip install --upgrade pip
+
+# Install dependencies one by one if batch install fails
+pip install streamlit==1.37.1
+pip install Pillow==10.4.0
+pip install numpy
+pip install opencv-python==4.8.1.78
+pip install tensorflow==2.19.0
+pip install keras==3.10.0
+pip install ultralytics==8.0.196
+pip install torch torchvision==0.23.0
+```
+
+#### Environment Issues
+```bash
+# If you get "command not found" errors:
+# Make sure your environment is activated
+conda activate helmet-detector  # for conda
+# or
+source helmet-detector-env/bin/activate  # for venv
+
+# Check if packages are installed in the right environment
+pip list | grep streamlit
+```
+
+### Runtime Issues
 
 1. **Model not found**: Ensure your model files are in the correct locations
 2. **Import errors**: Install all dependencies with `pip install -r requirements.txt`
@@ -198,6 +405,28 @@ This script will:
 - Attempt to convert models to compatible formats
 - Create backup test models if needed
 - Provide detailed error messages and solutions
+
+### Quick Start Checklist
+
+Before running the application, ensure you have:
+
+- [ ] **Python 3.8+** installed and accessible
+- [ ] **Virtual environment** created and activated
+- [ ] **Dependencies** installed (`pip install -r requirements.txt`)
+- [ ] **Models directory** created (`mkdir -p models`)
+- [ ] **At least one model** placed in `models/` directory (e.g., `yolo.pt`)
+- [ ] **Basic functionality** tested (import test passed)
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. **Check the error message** carefully - it often contains the solution
+2. **Verify your Python version** matches the requirements
+3. **Ensure all dependencies** are installed correctly
+4. **Check model file paths** and formats
+5. **Try the compatibility fixer** for model-related issues
+6. **Test with minimal setup** (just YOLO model) before adding other models
 
 ### Performance Tips
 
