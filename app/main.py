@@ -17,7 +17,36 @@ if PROJECT_ROOT not in sys.path:
 import streamlit as st
 from PIL import Image
 
-from detectors import CombinedHelmetDetector, RCNNHelmetDetector, YOLOv8Detector, SSDHelmetDetector, DETRHelmetDetector
+# Import detectors with fallback handling
+try:
+    from detectors import (
+        CombinedHelmetDetector, 
+        RCNNHelmetDetector, 
+        YOLOv8Detector, 
+        SSDHelmetDetector, 
+        DETRHelmetDetector
+    )
+    ALL_DETECTORS_AVAILABLE = True
+except ImportError as e:
+    # Handle case where some detectors are not available (e.g., YOLO requires ultralytics)
+    ALL_DETECTORS_AVAILABLE = False
+    print(f"Warning: Some detectors not available: {e}")
+    
+    # Try to import available detectors individually
+    try:
+        from detectors import RCNNHelmetDetector, SSDHelmetDetector, DETRHelmetDetector
+    except ImportError:
+        RCNNHelmetDetector = SSDHelmetDetector = DETRHelmetDetector = None
+    
+    try:
+        from detectors import YOLOv8Detector
+    except ImportError:
+        YOLOv8Detector = None
+    
+    try:
+        from detectors import CombinedHelmetDetector
+    except ImportError:
+        CombinedHelmetDetector = None
 from utils.visualize import draw_detections
 
 
@@ -287,24 +316,30 @@ def render_model_selector() -> str:
 	available_models = []
 	model_status = {}
 	
-	# Check YOLO
-	if get_model_path("yolo"):
-		available_models.append("YOLO Only")
-		model_status["YOLO Only"] = "✅ Available"
+	# Check YOLO (only if detector is available)
+	if YOLOv8Detector is not None:
+		if get_model_path("yolo"):
+			available_models.append("YOLO Only")
+			model_status["YOLO Only"] = "✅ Available"
+		else:
+			model_status["YOLO Only"] = "❌ YOLO model required"
 	else:
-		model_status["YOLO Only"] = "❌ YOLO model required"
+		model_status["YOLO Only"] = "❌ YOLO detector not available (ultralytics required)"
 	
-	# Check Hybrid (YOLO + VGG)
-	if get_model_path("yolo") and get_model_path("vgg16"):
-		available_models.append("Hybrid (YOLO+VGG)")
-		model_status["Hybrid (YOLO+VGG)"] = "✅ Available"
+	# Check Hybrid (YOLO + VGG) (only if detector is available)
+	if CombinedHelmetDetector is not None:
+		if get_model_path("yolo") and get_model_path("vgg16"):
+			available_models.append("Hybrid (YOLO+VGG)")
+			model_status["Hybrid (YOLO+VGG)"] = "✅ Available"
+		else:
+			missing = []
+			if not get_model_path("yolo"):
+				missing.append("YOLO")
+			if not get_model_path("vgg16"):
+				missing.append("VGG16")
+			model_status["Hybrid (YOLO+VGG)"] = f"❌ {', '.join(missing)} model(s) required"
 	else:
-		missing = []
-		if not get_model_path("yolo"):
-			missing.append("YOLO")
-		if not get_model_path("vgg16"):
-			missing.append("VGG16")
-		model_status["Hybrid (YOLO+VGG)"] = f"❌ {', '.join(missing)} model(s) required"
+		model_status["Hybrid (YOLO+VGG)"] = "❌ Hybrid detector not available (ultralytics required)"
 	
 	# Check RCNN
 	if get_model_path("rcnn"):
@@ -353,19 +388,29 @@ def render_model_selector() -> str:
 def run_detection(image: Image.Image, choice: str):
 	"""Run detection using hybrid model loading (local + uploaded)"""
 	if choice.startswith("Hybrid"):
+		if CombinedHelmetDetector is None:
+			raise ImportError("Hybrid detector not available. Install ultralytics package.")
 		yolo_path = get_model_path("yolo")
 		vgg_path = get_model_path("vgg16")
 		detector = CombinedHelmetDetector(yolo_path, vgg_path)
 	elif choice.startswith("YOLO"):
+		if YOLOv8Detector is None:
+			raise ImportError("YOLO detector not available. Install ultralytics package.")
 		yolo_path = get_model_path("yolo")
 		detector = YOLOv8Detector(yolo_path)
 	elif choice.startswith("RCNN"):
+		if RCNNHelmetDetector is None:
+			raise ImportError("RCNN detector not available.")
 		rcnn_path = get_model_path("rcnn")
 		detector = RCNNHelmetDetector(rcnn_path)
 	elif choice.startswith("SSD"):
+		if SSDHelmetDetector is None:
+			raise ImportError("SSD detector not available.")
 		ssd_path = get_model_path("ssd")
 		detector = SSDHelmetDetector(ssd_path)
 	else:  # DETR
+		if DETRHelmetDetector is None:
+			raise ImportError("DETR detector not available.")
 		detr_path = get_model_path("detr")
 		detector = DETRHelmetDetector(detr_path)
 	return detector.predict(image)

@@ -7,7 +7,14 @@ from typing import List, Optional
 import numpy as np
 from PIL import Image
 import torch
-from ultralytics import YOLO
+
+# Try to import ultralytics, but make it optional for deployment
+try:
+    from ultralytics import YOLO
+    ULTRALYTICS_AVAILABLE = True
+except ImportError:
+    ULTRALYTICS_AVAILABLE = False
+    YOLO = None
 
 # Try to import OpenCV, but make it optional for deployment
 try:
@@ -30,6 +37,12 @@ class YOLOv8Detector(HelmetDetector):
         Args:
             model_path: Path to the trained YOLOv8 .pt file
         """
+        if not ULTRALYTICS_AVAILABLE:
+            raise ImportError(
+                "YOLOv8 detector requires ultralytics package. "
+                "Install with: pip install ultralytics"
+            )
+        
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"YOLOv8 model not found at {model_path}")
         

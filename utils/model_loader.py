@@ -3,8 +3,15 @@ Utility functions for loading models with PyTorch 2.6 compatibility.
 """
 
 import torch
-from ultralytics import YOLO
 import tensorflow as tf
+
+# Try to import ultralytics, but make it optional for deployment
+try:
+    from ultralytics import YOLO
+    ULTRALYTICS_AVAILABLE = True
+except ImportError:
+    ULTRALYTICS_AVAILABLE = False
+    YOLO = None
 
 
 def load_yolo_model_safely(model_path: str):
@@ -17,6 +24,12 @@ def load_yolo_model_safely(model_path: str):
     Returns:
         Loaded YOLO model
     """
+    if not ULTRALYTICS_AVAILABLE:
+        raise ImportError(
+            "YOLOv8 model loading requires ultralytics package. "
+            "Install with: pip install ultralytics"
+        )
+    
     # Fix for PyTorch 2.6 compatibility - add safe globals for YOLO models
     try:
         from ultralytics.nn.tasks import DetectionModel

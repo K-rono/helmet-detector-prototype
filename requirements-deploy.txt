@@ -9,7 +9,7 @@ numpy
 # ML dependencies - Using exact versions for model compatibility
 tensorflow==2.19.0
 keras==3.10.0
-ultralytics==8.0.196
+# ultralytics==8.0.196  # Excluded - causes OpenCV dependency issues in deployment
 # Torch stack for RCNN (ensure you install matching CUDA builds if needed)
 torch
 torchvision==0.23.0

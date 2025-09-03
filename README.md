@@ -81,7 +81,7 @@ pip install -r requirements-deploy.txt
 python -c "import torch, tensorflow, streamlit, ultralytics; print('All dependencies installed successfully!')"
 ```
 
-**Note**: The deployment version excludes OpenCV to avoid `libGL.so.1` errors on cloud platforms. The application works perfectly without OpenCV as it uses PIL for visualization.
+**Note**: The deployment version excludes OpenCV and ultralytics to avoid `libGL.so.1` errors on cloud platforms. This means YOLO and Hybrid detectors are not available in deployment mode, but RCNN, SSD, and DETR detectors work perfectly.
 
 ### Step 3: Verify GPU Support (Optional)
 ```bash
@@ -462,11 +462,33 @@ If you encounter issues not covered here:
    - **Main file path**: `app/main.py`
    - **Requirements file**: `requirements-deploy.txt` (important!)
    - **Python version**: 3.11
+   - **Advanced settings**:
+     - **Setup script**: `setup.sh` (optional, for custom setup)
 5. **Deploy** and wait for the build to complete
+
+#### Alternative: Using Setup Script
+
+If you want more control over the deployment process, you can use the included `setup.sh` script:
+
+1. **Configure the deployment**:
+   - **Main file path**: `app/main.py`
+   - **Requirements file**: Leave empty (script handles dependencies)
+   - **Setup script**: `setup.sh`
+   - **Python version**: 3.11
+2. **Deploy** and wait for the build to complete
+
+The setup script will:
+- Install dependencies from `requirements-deploy.txt`
+- Create necessary directories
+- Set environment variables
+- Verify the installation
+- Provide deployment status information
 
 ### Important Deployment Notes
 
-- **Use `requirements-deploy.txt`**: This excludes OpenCV to avoid deployment issues
+- **Use `requirements-deploy.txt`**: This excludes OpenCV and ultralytics to avoid deployment issues
+- **Available Detectors**: Only RCNN, SSD, and DETR detectors work in deployment mode
+- **YOLO/Hybrid Limitations**: YOLO and Hybrid detectors require ultralytics (not available in deployment)
 - **Model Upload**: Users upload models at runtime - no model files needed in the repo
 - **Temporary Storage**: Models are stored in session memory and cleaned up automatically
 - **No GPU Required**: The app works on CPU-only deployments (though GPU is faster)
